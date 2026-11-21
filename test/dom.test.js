@@ -158,18 +158,54 @@ test('copy button writes metadata to the clipboard', async () => {
 	assert.equal(button.textContent, 'Copied!');
 });
 
-test('logs a clear error on pages without card data', () => {
-	const page = loadPage('<!DOCTYPE html><html><body><p>not a yoto page</p></body></html>');
-	assert.doesNotThrow(() => page.paste());
-	assert.equal(panel(page.document), null);
-	assert.match(page.errors.join('\n'), /Playlist data not found/);
-});
+const errorText = (document) => {
+	const root = panel(document);
+	assert.ok(root, 'an error panel is shown on the page');
+	assert.ok(root.classList.contains('yad-error'));
+	assert.equal(root.querySelectorAll('a.yad-track').length, 0);
+	return root.querySelector('.yad-error-message').textContent;
+};
 
-test('logs a clear error when the JSON is broken or has no card', () => {
-	for (const body of ['{not json', JSON.stringify({ props: { pageProps: {} } })]) {
-		const page = loadPage(`<!DOCTYPE html><html><body><script id="__NEXT_DATA__" type="application/json">${body}</script></body></html>`);
+const nextDataPage = (data) => `<!DOCTYPE html><html><body><script id="__NEXT_DATA__" type="application/json">${typeof data === 'string' ? data : JSON.stringify(data)}</script></body></html>`;
+
+test('pages without card data show the reason on the page and in the console', async (t) => {
+	await t.test('not a Yoto page', () => {
+		const page = loadPage('<!DOCTYPE html><html><body><p>not a yoto page</p></body></html>');
 		assert.doesNotThrow(() => page.paste());
-		assert.equal(panel(page.document), null);
-		assert.match(page.errors.join('\n'), /Could not read card data/);
-	}
+		assert.match(errorText(page.document), /Playlist data not found/);
+		assert.match(page.errors.join('\n'), /Playlist data not found/);
+	});
+	await t.test('broken JSON', () => {
+		const page = loadPage(nextDataPage('{not json'));
+		assert.doesNotThrow(() => page.paste());
+		assert.match(errorText(page.document), /not valid JSON/);
+	});
+	await t.test('Yoto shop page', () => {
+		const page = loadPage(nextDataPage({ props: { pageProps: { productOnPage: { title: 'A box set' } } } }));
+		page.paste();
+		assert.match(errorText(page.document), /shop page/);
+	});
+	await t.test('card link without the "?" part', () => {
+		const page = loadPage(nextDataPage({ props: { pageProps: { card: null, contentId: 'abc12', qsParams: {} } } }));
+		page.paste();
+		assert.match(errorText(page.document), /missing the part after "\?"/);
+	});
+	await t.test('full link but Yoto returns no card (expired/invalid/unlinked)', () => {
+		const page = loadPage(nextDataPage({ props: { pageProps: { card: null, isPhysicalCard: true, contentId: 'abc12', qsParams: { k: 'v' } } } }));
+		page.paste();
+		assert.match(errorText(page.document), /expired or invalid/);
+	});
+	await t.test('unknown shape', () => {
+		const page = loadPage(nextDataPage({ props: { pageProps: {} } }));
+		page.paste();
+		assert.match(errorText(page.document), /Card data not found/);
+	});
+	await t.test('a later successful run replaces the error panel', () => {
+		const page = loadPage(nextDataPage({ props: { pageProps: { card: null, qsParams: {} } } }));
+		page.paste();
+		page.document.getElementById('__NEXT_DATA__').textContent = JSON.stringify({ props: { pageProps: { card: officialCard } } });
+		page.paste();
+		assert.equal(page.document.querySelectorAll('#yoto-archival-downloader').length, 1);
+		assert.equal(panel(page.document).querySelectorAll('a.yad-track').length, 3);
+	});
 });

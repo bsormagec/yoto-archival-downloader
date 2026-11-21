@@ -99,6 +99,23 @@
 		return card;
 	}
 
+	// Explain, in plain words, why a page has no usable card data
+	function explainMissingCard(nextData) {
+		const pageProps = (nextData && nextData.props && nextData.props.pageProps) || null;
+		if (!pageProps) return 'This page does not contain Yoto card data. Open the link read from your Yoto card (yoto.io/...).';
+		if (pageProps.productOnPage) {
+			return 'This is a Yoto shop page, not a card page. It only has short audio previews. Open the link read from your Yoto card (yoto.io/...) instead.';
+		}
+		if ('card' in pageProps && !pageProps.card) {
+			const qs = pageProps.qsParams;
+			if (!qs || !Object.keys(qs).length) {
+				return 'The link is missing the part after "?". Use the full link read from the card with NFC Tools, e.g. yoto.io/ABC12?xxxx=yyyy.';
+			}
+			return 'Yoto returned no card for this link. The link may be expired or invalid, or no content is linked to this card any more (for example a Make-Your-Own playlist that was deleted or re-linked). Check the card in the Yoto app and read the link again.';
+		}
+		return 'Card data not found on this page.';
+	}
+
 	// Flatten chapters -> tracks into one numbered list
 	function buildTrackList(card) {
 		const cardTitle = sanitizeFilename(card.title);
@@ -244,22 +261,56 @@
 		doc.querySelectorAll('[class*="Footer_appDownloadBar"]').forEach((node) => node.remove());
 	}
 
+	// Remove a panel from an earlier run (and free its metadata blob URL)
+	function removePreviousPanel(doc, win) {
+		const previous = doc.getElementById(CONTAINER_ID);
+		if (!previous) return;
+		const oldLink = previous.querySelector('a[download]');
+		if (oldLink && win.URL && win.URL.revokeObjectURL) win.URL.revokeObjectURL(oldLink.href);
+		previous.remove();
+	}
+
+	const PANEL_STYLE = {
+		margin: '20px',
+		backgroundColor: 'rgba(244, 84, 54, .6)',
+		padding: '20px',
+		font: 'normal 10pt "Source Sans Pro", "Source Sans", Calibri, Arial, Tahoma, sans-serif',
+	};
+
+	// Show the problem on the page too: bookmarklet users never see the console
+	function showError(doc, win, message, detail) {
+		console.error(`[Yoto Archival Downloader] ${message}`, detail || '');
+		if (!doc.body) return null;
+		removePreviousPanel(doc, win);
+		const container = el(doc, 'div', { id: CONTAINER_ID, className: 'yad-error', style: PANEL_STYLE }, [
+			el(doc, 'h2', {}, [link(doc, REPO_URL, 'Archival Downloader for Yoto', 'Need help? Open the project page.')]),
+			el(doc, 'p', { text: message, className: 'yad-error-message', style: { fontWeight: 'bold' } }),
+		]);
+		doc.body.insertBefore(container, doc.body.firstChild);
+		return null;
+	}
+
 	function run(doc, win) {
 		doc = doc || document;
 		win = win || window;
 
 		const scriptElement = doc.getElementById('__NEXT_DATA__');
 		if (!scriptElement) {
-			console.error('[Yoto Archival Downloader] Playlist data not found. Open a yoto.io card link first.');
-			return null;
+			return showError(doc, win, 'Playlist data not found. Open the link read from your Yoto card (yoto.io/...) and run this again.');
+		}
+
+		let nextData;
+		try {
+			nextData = JSON.parse(scriptElement.textContent);
+		} catch (err) {
+			return showError(doc, win, 'Could not read card data: the page data is not valid JSON.', err);
 		}
 
 		let card;
 		try {
-			card = extractCard(JSON.parse(scriptElement.textContent));
+			card = extractCard(nextData);
 		} catch (err) {
-			console.error('[Yoto Archival Downloader] Could not read card data:', err);
-			return null;
+			return showError(doc, win, explainMissingCard(nextData));
 		}
 
 		const metadata = card.metadata || {};
@@ -272,12 +323,7 @@
 		const metaText = buildMetadataText(card, tracks);
 
 		// Running the script again replaces the previous panel
-		const previous = doc.getElementById(CONTAINER_ID);
-		if (previous) {
-			const oldLink = previous.querySelector('a[download]');
-			if (oldLink && win.URL && win.URL.revokeObjectURL) win.URL.revokeObjectURL(oldLink.href);
-			previous.remove();
-		}
+		removePreviousPanel(doc, win);
 
 		// Metadata download (Blob) + copy-to-clipboard button
 		const blob = new win.Blob([metaText], { type: 'text/plain;charset=utf-8' });
@@ -316,12 +362,7 @@
 
 		const container = el(doc, 'div', {
 			id: CONTAINER_ID,
-			style: {
-				margin: '20px',
-				backgroundColor: 'rgba(244, 84, 54, .6)',
-				padding: '20px',
-				font: 'normal 10pt "Source Sans Pro", "Source Sans", Calibri, Arial, Tahoma, sans-serif',
-			},
+			style: PANEL_STYLE,
 		}, [
 			el(doc, 'h2', {}, [link(doc, REPO_URL, 'Archival Downloader for Yoto', 'Need help? Open the project page.')]),
 			el(doc, 'p', { text: `Need help? Click the title. ${tracks.length} track(s) found.` }),
@@ -351,6 +392,7 @@
 		urlExtension,
 		cardAuthor,
 		extractCard,
+		explainMissingCard,
 		buildTrackList,
 		buildMetadataText,
 		run,

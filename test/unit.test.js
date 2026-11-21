@@ -96,6 +96,15 @@ test('cardAuthor', () => {
 	assert.equal(yad.cardAuthor(undefined), 'undefined');
 });
 
+test('explainMissingCard', () => {
+	assert.match(yad.explainMissingCard(null), /does not contain Yoto card data/);
+	assert.match(yad.explainMissingCard({ props: { pageProps: { productOnPage: {} } } }), /shop page/);
+	assert.match(yad.explainMissingCard({ props: { pageProps: { card: null, qsParams: {} } } }), /missing the part after/);
+	assert.match(yad.explainMissingCard({ props: { pageProps: { card: null } } }), /missing the part after/);
+	assert.match(yad.explainMissingCard({ props: { pageProps: { card: null, qsParams: { a: 'b' } } } }), /expired or invalid/);
+	assert.match(yad.explainMissingCard({ props: { pageProps: {} } }), /Card data not found/);
+});
+
 test('extractCard', () => {
 	assert.equal(yad.extractCard(nextData(officialCard)), officialCard);
 	assert.throws(() => yad.extractCard({}), /Card data not found/);

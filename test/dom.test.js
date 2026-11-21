@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
-const { officialCard, myoCard, trickyCard, pageHtml } = require('./fixtures/cards');
+const { officialCard, myoCard, trickyCard, realShapeMyoCard, pageHtml } = require('./fixtures/cards');
 
 const SCRIPT = fs.readFileSync(path.join(__dirname, '..', 'yoto-archival-downloader_v3.js'), 'utf8');
 
@@ -44,9 +44,9 @@ test('official card: builds the panel with every track, icon, cover and metadata
 
 	const trackLinks = [...root.querySelectorAll('a.yad-track')];
 	assert.deepEqual(trackLinks.map((a) => a.textContent), [
-		'The Big Adventure - 001 - Chapter One',
-		'The Big Adventure - 002 - Chapter One (part 2)',
-		'The Big Adventure - 003 - Chapter Two',
+		'The Big Adventure - 001 - Chapter One.mp3',
+		'The Big Adventure - 002 - Chapter One (part 2).mp3',
+		'The Big Adventure - 003 - Chapter Two.aac',
 	]);
 	assert.deepEqual(trackLinks.map((a) => a.href), [
 		'https://cdn.example.test/audio/1.mp3',
@@ -57,12 +57,12 @@ test('official card: builds the panel with every track, icon, cover and metadata
 
 	const iconLinks = [...root.querySelectorAll('a.yad-icon')];
 	assert.equal(iconLinks.length, 3);
-	assert.equal(iconLinks[0].title, 'The Big Adventure - 001 - Chapter One (icon)');
+	assert.equal(iconLinks[0].title, 'The Big Adventure - 001 - Chapter One (icon).png');
 	assert.equal(iconLinks[2].querySelector('img').src, 'https://cdn.example.test/icons/track3.png');
 
 	const cover = root.querySelector('a.yad-cover');
 	assert.equal(cover.href, 'https://cdn.example.test/covers/big-adventure.jpg');
-	assert.equal(cover.textContent, 'The Big Adventure - Artwork');
+	assert.equal(cover.textContent, 'The Big Adventure - Artwork.jpg');
 	assert.match(root.querySelector('.yad-card-info span').textContent, /^The Big Adventure \(by Jane Writer\)$/);
 	assert.match(root.textContent, /3 track\(s\) found/);
 
@@ -92,6 +92,19 @@ test('MYO card without author/icons works', async () => {
 	assert.equal(root.querySelectorAll('a.yad-icon').length, 0);
 	assert.match(root.querySelector('.yad-card-info span').textContent, /\(by undefined\)/);
 	assert.match(root.querySelector('textarea').value, /ShareCount:: 3/);
+});
+
+test('real MYO card shape (as seen on share.yoto.co)', () => {
+	const page = loadPage(pageHtml(realShapeMyoCard));
+	page.paste();
+	const root = panel(page.document);
+	assert.deepEqual(page.errors, []);
+	assert.deepEqual([...root.querySelectorAll('a.yad-track')].map((a) => a.textContent),
+		['Story Time - 001 - Story_One_128k.opus', 'Story Time - 002 - Story Two.opus']);
+	assert.equal(root.querySelectorAll('a.yad-icon').length, 0, 'null icons are skipped');
+	assert.equal(root.querySelector('a.yad-cover').textContent, 'Story Time - Artwork.gif');
+	assert.equal(page.document.querySelectorAll('[class*="Footer_appDownloadBar"]').length, 0);
+	assert.doesNotMatch(root.querySelector('textarea').value, /user-private-id/);
 });
 
 test('titles with quotes and HTML do not break the markup or inject elements', async () => {

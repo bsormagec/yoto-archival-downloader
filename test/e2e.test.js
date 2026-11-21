@@ -31,6 +31,9 @@ test('e2e in Chromium', { skip: playwright ? false : 'playwright is not installe
 
 	async function openPage(route) {
 		const context = await browser.newContext({ acceptDownloads: true });
+		// Keep the test offline: the fixture's icon/cover URLs are fake, so
+		// answer every non-local request with an empty response.
+		await context.route((url) => !url.href.startsWith(base), (route) => route.fulfill({ status: 200, body: '' }));
 		const page = await context.newPage();
 		const errors = [];
 		page.on('pageerror', (err) => errors.push(err.message));

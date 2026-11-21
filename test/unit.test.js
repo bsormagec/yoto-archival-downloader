@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const yad = require('../yoto-archival-downloader_v3.js');
-const { officialCard, myoCard, trickyCard, nextData } = require('./fixtures/cards');
+const { officialCard, myoCard, trickyCard, realShapeMyoCard, nextData } = require('./fixtures/cards');
 
 test('convertSeconds', async (t) => {
 	await t.test('formats hours, minutes and seconds', () => {
@@ -70,6 +70,32 @@ test('sanitizeFilename', async (t) => {
 	});
 });
 
+test('file extension helpers', () => {
+	assert.equal(yad.audioExtension('opus'), '.opus');
+	assert.equal(yad.audioExtension('MP3'), '.mp3');
+	assert.equal(yad.audioExtension('aac'), '.aac');
+	assert.equal(yad.audioExtension('mp4'), '.m4a');
+	assert.equal(yad.audioExtension(undefined), '');
+	assert.equal(yad.audioExtension('weird'), '');
+	assert.equal(yad.stripAudioExtension('Song.mp3'), 'Song');
+	assert.equal(yad.stripAudioExtension('Song.MP3'), 'Song');
+	assert.equal(yad.stripAudioExtension('Song.opus'), 'Song');
+	assert.equal(yad.stripAudioExtension('Vol. 2'), 'Vol. 2');
+	assert.equal(yad.stripAudioExtension('notes.txt'), 'notes.txt');
+	assert.equal(yad.urlExtension('https://x.test/a/fish.gif'), '.gif');
+	assert.equal(yad.urlExtension('https://x.test/a/pic.JPG?w=100#top'), '.jpg');
+	assert.equal(yad.urlExtension('https://x.test/secure/abcDEF123'), '');
+	assert.equal(yad.urlExtension(''), '');
+});
+
+test('cardAuthor', () => {
+	assert.equal(yad.cardAuthor({ author: 'Jane' }), 'Jane');
+	assert.equal(yad.cardAuthor({ authors: ['A', 'B'] }), 'A,B');
+	assert.equal(yad.cardAuthor({ authors: [] }), 'undefined');
+	assert.equal(yad.cardAuthor({}), 'undefined');
+	assert.equal(yad.cardAuthor(undefined), 'undefined');
+});
+
 test('extractCard', () => {
 	assert.equal(yad.extractCard(nextData(officialCard)), officialCard);
 	assert.throws(() => yad.extractCard({}), /Card data not found/);
@@ -81,9 +107,9 @@ test('buildTrackList', async (t) => {
 	await t.test('numbers tracks across chapters with 3-digit padding', () => {
 		const tracks = yad.buildTrackList(officialCard);
 		assert.deepEqual(tracks.map((x) => x.pad), ['001', '002', '003']);
-		assert.equal(tracks[0].filename, 'The Big Adventure - 001 - Chapter One');
-		assert.equal(tracks[2].filename, 'The Big Adventure - 003 - Chapter Two');
-		assert.equal(tracks[0].iconFilename, 'The Big Adventure - 001 - Chapter One (icon)');
+		assert.equal(tracks[0].filename, 'The Big Adventure - 001 - Chapter One.mp3');
+		assert.equal(tracks[2].filename, 'The Big Adventure - 003 - Chapter Two.aac');
+		assert.equal(tracks[0].iconFilename, 'The Big Adventure - 001 - Chapter One (icon).png');
 		assert.equal(tracks[1].trackUrl, 'https://cdn.example.test/audio/2.mp3');
 	});
 	await t.test('uses the chapter icon, preferring a track-specific icon', () => {
@@ -92,11 +118,19 @@ test('buildTrackList', async (t) => {
 		assert.equal(tracks[2].iconUrl, 'https://cdn.example.test/icons/track3.png');
 		assert.equal(yad.buildTrackList(myoCard)[0].iconUrl, '');
 	});
+	await t.test('track without a format gets no extension', () => {
+		assert.equal(yad.buildTrackList(trickyCard)[1].filename.endsWith('No audio url'), true);
+	});
 	await t.test('handles tricky titles, missing urls and chapters without tracks', () => {
 		const tracks = yad.buildTrackList(trickyCard);
 		assert.equal(tracks.length, 2);
 		assert.equal(tracks[0].filename, `Peter's _Best_ _Songs__ Vol_1_ - 001 - It's _script_alert(1)__script_ time`);
 		assert.equal(tracks[1].trackUrl, '');
+	});
+	await t.test('real MYO shape: extension comes from the format, not the uploaded file name', () => {
+		const tracks = yad.buildTrackList(realShapeMyoCard);
+		assert.deepEqual(tracks.map((x) => x.filename), ['Story Time - 001 - Story_One_128k.opus', 'Story Time - 002 - Story Two.opus']);
+		assert.deepEqual(tracks.map((x) => x.iconUrl), ['', '']);
 	});
 	await t.test('returns an empty list when there is no content', () => {
 		assert.deepEqual(yad.buildTrackList({ title: 'x' }), []);
@@ -108,7 +142,7 @@ test('buildMetadataText', async (t) => {
 	await t.test('official card', () => {
 		const text = yad.buildMetadataText(officialCard, yad.buildTrackList(officialCard));
 		const expectedSnippets = [
-			'Basic Details\n================\nTitle:: The Big Adventure\nAuthor:: Jane Writer\nDescription:: A story about a big adventure.\n',
+			'Basic Details\n================\nTitle:: The Big Adventure\nAuthor:: Jane Writer\nNarrators:: undefined\nDescription:: A story about a big adventure.\n',
 			'Languages:: en,en-GB',
 			'Category:: stories',
 			'Slug:: the-big-adventure',
@@ -136,6 +170,13 @@ test('buildMetadataText', async (t) => {
 		assert.ok(text.includes('Duration:: undefined\nReadableDuration:: undefined'));
 		assert.ok(text.includes('FileSize:: undefined\nReadableFileSize:: undefined'));
 		assert.doesNotMatch(text, /NaN/);
+	});
+	await t.test('real MYO shape: availability from content, no NaN, userId not written', () => {
+		const text = yad.buildMetadataText(realShapeMyoCard, yad.buildTrackList(realShapeMyoCard));
+		assert.ok(text.includes('Author:: undefined\nNarrators:: undefined'));
+		assert.ok(text.includes('ReadableDuration:: 0h 31m 28s'));
+		assert.ok(text.includes('Format:: opus'));
+		assert.doesNotMatch(text, /NaN|user-private-id/);
 	});
 	await t.test('does not leak personal data fields', () => {
 		const card = Object.assign({}, myoCard, { userId: 'secret-user', ownerEmail: 'someone@example.test' });

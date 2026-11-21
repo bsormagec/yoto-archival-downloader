@@ -86,6 +86,39 @@ const trickyCard = {
 	},
 };
 
+// Shaped like a real MYO card payload seen on share.yoto.co (Nov 2026):
+// track titles are the uploaded file names (".mp3") while the audio is
+// re-encoded to Opus, icons are null, authors/narrators are lists,
+// availability lives under content, and a userId is present (must not leak).
+const realShapeMyoCard = {
+	cardId: 'zz9Qx',
+	title: 'Story Time',
+	slug: 'ABCDEFGHIJ-KLMNOPQRST',
+	sortkey: 'ABCDEFGHIJ-KLMNOPQRST',
+	userId: 'user-private-id-0123456789abcd',
+	createdAt: '2026-01-01T10:00:00.000Z',
+	updatedAt: '2026-01-02T10:00:00.000Z',
+	metadata: {
+		abridged: false, accents: [], authors: [], copyrights: ['©'], narrators: [],
+		cover: { imageL: 'https://cdn.example.test/myo-cover/fish.gif' },
+		media: { duration: 1888, fileSize: 23000000 },
+	},
+	content: {
+		activity: 'yoto_Player',
+		availability: '',
+		config: { resumeTimeout: 2592000, onlineOnly: false },
+		cover: { imageL: 'https://cdn.example.test/myo-cover/fish.gif' },
+		playbackType: 'linear',
+		version: '1',
+		chapters: [
+			{ key: '01', title: 'Story_One_128k.mp3', duration: 1261, fileSize: 15711588, display: { icon16x16: null }, overlayLabel: '1', ambient: null,
+				tracks: [{ key: 'a1', title: 'Story_One_128k.mp3', trackUrl: 'https://media.example.test/secure/aaa', format: 'opus', type: 'audio', duration: 1261, fileSize: 15711588, channels: 'stereo', display: null, ambient: null, overlayLabel: '1' }] },
+			{ key: '02', title: 'Story Two.MP3', duration: 627, fileSize: 7288412, display: { icon16x16: null }, overlayLabel: '2', ambient: null,
+				tracks: [{ key: 'b2', title: 'Story Two.MP3', trackUrl: 'https://media.example.test/secure/bbb', format: 'opus', type: 'audio', duration: 627, fileSize: 7288412, channels: 'stereo', display: null, ambient: null, overlayLabel: '2' }] },
+		],
+	},
+};
+
 function nextData(card) {
 	return { props: { pageProps: { card } }, page: '/card/[id]', query: {} };
 }
@@ -99,10 +132,10 @@ function pageHtml(card) {
 <div id="__next">
   <main><h1>Original page content</h1><a href="https://cdn.example.test/useless.mp3">useless</a></main>
   <div class="player-controls"><button>Play</button><a href="#">control link</a></div>
-  <div class="Footer_appDownloadBar__Xy12z"><a href="#">Get the app</a></div>
+  <div class="Footer_appDownloadBar__Xy12z share-footer"><div class="Footer_appDownloadBarContent__Ab12c"><a href="#">Get the app</a></div></div>
 </div>
 <script id="__NEXT_DATA__" type="application/json">${json}</script>
 </body></html>`;
 }
 
-module.exports = { officialCard, myoCard, trickyCard, nextData, pageHtml };
+module.exports = { officialCard, myoCard, trickyCard, realShapeMyoCard, nextData, pageHtml };

@@ -63,6 +63,33 @@
 		return cleaned || 'untitled';
 	}
 
+	// File extension for a track, based on its format. Yoto re-encodes MYO
+	// uploads (often to Opus in an Ogg container), so the format field is
+	// more reliable than the original file name in the track title.
+	const FORMAT_EXTENSIONS = { opus: 'opus', ogg: 'ogg', mp3: 'mp3', aac: 'aac', m4a: 'm4a', mp4: 'm4a', wav: 'wav', flac: 'flac' };
+	const AUDIO_EXT_RE = /\.(mp3|m4a|m4b|aac|ogg|oga|opus|wav|flac|wma)$/i;
+
+	function audioExtension(format) {
+		const ext = FORMAT_EXTENSIONS[String(format || '').toLowerCase()];
+		return ext ? `.${ext}` : '';
+	}
+
+	// Remove an audio extension left over from the uploaded file name
+	function stripAudioExtension(title) {
+		return String(title === undefined || title === null ? '' : title).replace(AUDIO_EXT_RE, '');
+	}
+
+	// Extension from a URL path, e.g. ".gif" for ".../cover.gif?x=1"
+	function urlExtension(url) {
+		const match = /\.([a-z0-9]{2,5})$/i.exec(String(url || '').split(/[?#]/)[0]);
+		return match ? `.${match[1].toLowerCase()}` : '';
+	}
+
+	// Author can be a string (author) or a list (authors)
+	function cardAuthor(metadata) {
+		return orUndef((metadata && (metadata.author || metadata.authors)) || '');
+	}
+
 	// Get the card object from the parsed __NEXT_DATA__ JSON
 	function extractCard(nextData) {
 		const card = nextData && nextData.props && nextData.props.pageProps && nextData.props.pageProps.card;
@@ -85,15 +112,16 @@
 				const pad = String(number).padStart(3, '0');
 				const iconUrl = (track.display && track.display.icon16x16) ||
 					(chapter.display && chapter.display.icon16x16) || '';
-				const filename = `${cardTitle} - ${pad} - ${sanitizeFilename(track.title)}`;
+				const filename = `${cardTitle} - ${pad} - ${sanitizeFilename(stripAudioExtension(track.title))}`;
+				const iconExt = urlExtension(iconUrl);
 				tracks.push({
 					number,
 					pad,
 					title: track.title === undefined ? UNDEF : String(track.title),
 					trackUrl: track.trackUrl || '',
 					iconUrl,
-					filename,
-					iconFilename: `${filename} (icon)`,
+					filename: filename + audioExtension(track.format),
+					iconFilename: `${filename} (icon)${iconExt}`,
 					track,
 				});
 			});
@@ -114,7 +142,8 @@
 
 		section('Basic Details');
 		add('Title', orUndef(card.title));
-		add('Author', orUndef(metadata.author)); // only exists for official cards
+		add('Author', cardAuthor(metadata));
+		add('Narrators', orUndef(metadata.narrators));
 		add('Description', orUndef(metadata.description));
 		lines.push('');
 
@@ -137,7 +166,7 @@
 
 		section('Share Statistics'); // only exists for MYO cards
 		add('ShareCount', orUndef(card.shareCount));
-		add('Availability', orUndef(card.availability));
+		add('Availability', orUndef(card.availability || content.availability));
 		add('ShareLinkUrl', orUndef(card.shareLinkUrl));
 		lines.push('');
 
@@ -235,8 +264,10 @@
 
 		const metadata = card.metadata || {};
 		const cardTitle = sanitizeFilename(card.title);
-		const author = orUndef(metadata.author);
-		const coverUrl = (metadata.cover && metadata.cover.imageL) || '';
+		const author = cardAuthor(metadata);
+		const coverUrl = (metadata.cover && metadata.cover.imageL) ||
+			(card.content && card.content.cover && card.content.cover.imageL) || '';
+		const coverName = `${cardTitle} - Artwork${urlExtension(coverUrl)}`;
 		const tracks = buildTrackList(card);
 		const metaText = buildMetadataText(card, tracks);
 
@@ -274,12 +305,12 @@
 		const cardInfo = el(doc, 'div', { className: 'yad-card-info' }, [
 			coverUrl ? el(doc, 'img', {
 				src: coverUrl,
-				alt: `${cardTitle} - Artwork`,
+				alt: coverName,
 				style: { float: 'left', height: '150px', border: '0', margin: '0 20px 20px 0' },
 			}) : null,
 			el(doc, 'span', { text: `${orUndef(card.title)} (by ${author})`, style: { fontWeight: 'bold', fontSize: '13pt' } }),
 			el(doc, 'br'),
-			coverUrl ? link(doc, coverUrl, `${cardTitle} - Artwork`, `${cardTitle} - Artwork`, { className: 'yad-cover' }) : null,
+			coverUrl ? link(doc, coverUrl, coverName, coverName, { className: 'yad-cover' }) : null,
 			el(doc, 'div', { style: { clear: 'both' } }),
 		]);
 
@@ -315,6 +346,10 @@
 		formatBytes,
 		orUndef,
 		sanitizeFilename,
+		audioExtension,
+		stripAudioExtension,
+		urlExtension,
+		cardAuthor,
 		extractCard,
 		buildTrackList,
 		buildMetadataText,

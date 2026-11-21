@@ -1,0 +1,21 @@
+{
+  "name": "yoto-archival-downloader",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Archival file content downloader for Yoto Player cards and MYO playlists",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "test:unit": "node --test test/unit.test.js",
+    "test:dom": "node --test test/dom.test.js",
+    "test:e2e": "node --test test/e2e.test.js",
+    "lint": "node --check yoto-archival-downloader_v3.js && node --check scripts/build-bookmarklet.js",
+    "build": "node scripts/build-bookmarklet.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0",
+    "terser": "^5.39.0"
+  }
+}

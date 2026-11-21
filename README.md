@@ -6,7 +6,24 @@ This project provides a simple and efficient tool for downloading audio, icon, c
 ![image](https://github.com/user-attachments/assets/9baf2b9d-09fb-49a8-b91c-d2cf1fc92b1e)
 
 ## Known Issues
-1. Card Titles that have `'` or other special characters are likely to cause the filenames to be completely broken.
+1. ~Card Titles that have `'` or other special characters are likely to cause the filenames to be completely broken.~ Fixed in v3: names are built with DOM APIs and characters that are not allowed in file names (`\ / : * ? " < > |`) are replaced with `_`.
+
+## v3 - November 2026
+
+`yoto-archival-downloader_v3.js` is a rewrite of v2 with the same layout and features. v1 and v2 are kept unchanged for reference.
+- Titles with `'`, `"` or `<` no longer break links or inject HTML; every element is built with `textContent`/`setAttribute` instead of `innerHTML` string concatenation.
+- File names are sanitized so they are valid on Windows, macOS and Linux (and the double space in `Title  - 001` is gone).
+- Cards with missing fields (no `media`, no cover, chapters without tracks, tracks without audio) no longer crash; missing values show as `undefined` instead of `NaN`.
+- The track link text is now the full file name (`Card Title - 001 - Track Title`), so the Simple Mass Downloader **Link text** mask gives correctly numbered files again.
+- File extensions come from the track's real format. Yoto re-encodes Make-Your-Own uploads to Opus, so a track uploaded as `song.mp3` is now saved as `Card - 001 - song.opus` instead of an Opus file with a misleading `.mp3` name. The cover art name also gets its extension (e.g. `.gif`).
+- Reads `authors`/`narrators` lists and `content.availability`, which is how current cards store them.
+- Uses a track's own icon when it has one, otherwise the chapter icon.
+- Added a **Copy** button for the metadata (the old TODO).
+- The script is wrapped in a function, so running it twice (or as a bookmarklet) no longer fails with `Identifier 'scriptElement' has already been declared`; a second run replaces the panel.
+- The app download footer is matched by its class prefix, so a new build hash on yoto.io does not stop it being removed.
+- A bookmarklet is now built automatically (see below).
+- Added automated tests (unit, jsdom and real Chromium).
+- Checked against a real MYO card in November 2026: `yoto.io/...` links now redirect to `share.yoto.co/p/...` and the script works there. The full link from the card (including the part after `?`) is required; without it the page has no card data.
 
 ## Fork - September 26, 2024
 
@@ -35,7 +52,7 @@ I've forked this from the original creator because I wanted to perform a signifi
 - ~delete the banner at the bottom of the page~
 - ~remove the useless download links so they don't get downloaded~
 - ~consider deleting the player widget and stuff~
-- figure out how to minimize the code and make the bookmarklet automatically. my code got too long 🤷‍♂️
+- ~figure out how to minimize the code and make the bookmarklet automatically. my code got too long 🤷‍♂️~ (`npm run build`)
 
 ## Features
 
@@ -50,15 +67,17 @@ I've forked this from the original creator because I wanted to perform a signifi
 ## Prerequisites
 
 - A browser with JavaScript enabled, probably HTML5 support
-- The Code from  `JS code`
+- The code from `yoto-archival-downloader_v3.js` (or the bookmarklet below)
 - [Simple Mass Downloader](https://chromewebstore.google.com/detail/simple-mass-downloader/abdkkegmcbiomijcbdaodaflgehfffed) (optional but very much recommended)
 - NFC Tools app ([Andriod](https://play.google.com/store/apps/details?id=com.wakdev.wdnfc&hl=en_US&gl=US) | [iOS](https://apps.apple.com/us/app/nfc-tools/id1252962749))
 
 ## Bookmarklet
-Create a bookmark in your browser and paste this into the link location. This will let you simply click the bookmark link when you are on a yoto.io page to activate the code.
+Create a bookmark in your browser and paste this into the link location. This will let you simply click the bookmark link when you are on a yoto.io page to activate the code. The same text is in [`dist/bookmarklet.txt`](dist/bookmarklet.txt).
+<!-- BOOKMARKLET:START -->
 ```
-coming soon
+javascript:void(function()%7B!function()%7B%22use%20strict%22%3Bconst%20t%3D%22undefined%22%2Ce%3D%22yoto-archival-downloader%22%2Ca%3D%22https%3A%2F%2Fgithub.com%2Fhumor4fun%2Fyoto-archival-downloader%22%2Cr%3Dt%3D%3E%22number%22%3D%3Dtypeof%20t%26%26Number.isFinite(t)%3Bfunction%20o(e)%7Bif(!r(e)%7C%7Ce%3C0)return%20t%3Bconst%20a%3DMath.round(e)%3Breturn%60%24%7BMath.floor(a%2F3600)%7Dh%20%24%7BMath.floor(a%253600%2F60)%7Dm%20%24%7Ba%2560%7Ds%60%7Dfunction%20n(e%2Ca%3D2)%7Bif(!r(e)%7C%7Ce%3C0)return%20t%3Bif(0%3D%3D%3De)return%220%20Bytes%22%3Bconst%20o%3Da%3C0%3F0%3Aa%2Cn%3D%5B%22Bytes%22%2C%22KB%22%2C%22MB%22%2C%22GB%22%2C%22TB%22%5D%2Ci%3DMath.min(Math.floor(Math.log(e)%2FMath.log(1024))%2Cn.length-1)%3Breturn%60%24%7BparseFloat((e%2FMath.pow(1024%2Ci)).toFixed(o))%7D%20%24%7Bn%5Bi%5D%7D%60%7Dfunction%20i(e)%7Breturn%20null%3D%3De%7C%7C%22%22%3D%3D%3De%3Ft%3AArray.isArray(e)%3Fe.length%3Fe.join(%22%2C%22)%3At%3AString(e)%7Dfunction%20l(t)%7Breturn%20String(null%3D%3Dt%3F%22%22%3At).replace(%2F%5B%5Cu0000-%5Cu001f%5Cu007f%5D%2Fg%2C%22%22).replace(%2F%5B%5C%5C%2F%3A*%3F%22%3C%3E%7C%5D%2Fg%2C%22_%22).replace(%2F%5Cs%2B%2Fg%2C%22%20%22).trim().replace(%2F%5B.%20%5D%2B%24%2F%2C%22%22)%7C%7C%22untitled%22%7Dconst%20c%3D%7Bopus%3A%22opus%22%2Cogg%3A%22ogg%22%2Cmp3%3A%22mp3%22%2Caac%3A%22aac%22%2Cm4a%3A%22m4a%22%2Cmp4%3A%22m4a%22%2Cwav%3A%22wav%22%2Cflac%3A%22flac%22%7D%2Cs%3D%2F%5C.(mp3%7Cm4a%7Cm4b%7Caac%7Cogg%7Coga%7Copus%7Cwav%7Cflac%7Cwma)%24%2Fi%3Bfunction%20d(t)%7Bconst%20e%3Dc%5BString(t%7C%7C%22%22).toLowerCase()%5D%3Breturn%20e%3F%60.%24%7Be%7D%60%3A%22%22%7Dfunction%20u(t)%7Breturn%20String(null%3D%3Dt%3F%22%22%3At).replace(s%2C%22%22)%7Dfunction%20p(t)%7Bconst%20e%3D%2F%5C.(%5Ba-z0-9%5D%7B2%2C5%7D)%24%2Fi.exec(String(t%7C%7C%22%22).split(%2F%5B%3F%23%5D%2F)%5B0%5D)%3Breturn%20e%3F%60.%24%7Be%5B1%5D.toLowerCase()%7D%60%3A%22%22%7Dfunction%20f(t)%7Breturn%20i(t%26%26(t.author%7C%7Ct.authors)%7C%7C%22%22)%7Dfunction%20h(t)%7Bconst%20e%3Dt%26%26t.props%26%26t.props.pageProps%26%26t.props.pageProps.card%3Bif(!e%7C%7C%22object%22!%3Dtypeof%20e)throw%20new%20Error(%22Card%20data%20not%20found%20in%20__NEXT_DATA__%22)%3Breturn%20e%7Dfunction%20y(t)%7Bconst%20e%3Dt%26%26t.props%26%26t.props.pageProps%7C%7Cnull%3Bif(!e)return%22This%20page%20does%20not%20contain%20Yoto%20card%20data.%20Open%20the%20link%20read%20from%20your%20Yoto%20card%20(yoto.io%2F...).%22%3Bif(e.productOnPage)return%22This%20is%20a%20Yoto%20shop%20page%2C%20not%20a%20card%20page.%20It%20only%20has%20short%20audio%20previews.%20Open%20the%20link%20read%20from%20your%20Yoto%20card%20(yoto.io%2F...)%20instead.%22%3Bif(%22card%22in%20e%26%26!e.card)%7Bconst%20t%3De.qsParams%3Breturn%20t%26%26Object.keys(t).length%3F%22Yoto%20returned%20no%20card%20for%20this%20link.%20The%20link%20may%20be%20expired%20or%20invalid%2C%20or%20no%20content%20is%20linked%20to%20this%20card%20any%20more%20(for%20example%20a%20Make-Your-Own%20playlist%20that%20was%20deleted%20or%20re-linked).%20Check%20the%20card%20in%20the%20Yoto%20app%20and%20read%20the%20link%20again.%22%3A'The%20link%20is%20missing%20the%20part%20after%20%22%3F%22.%20Use%20the%20full%20link%20read%20from%20the%20card%20with%20NFC%20Tools%2C%20e.g.%20yoto.io%2FABC12%3Fxxxx%3Dyyyy.'%7Dreturn%22Card%20data%20not%20found%20on%20this%20page.%22%7Dfunction%20g(e)%7Bconst%20a%3Dl(e.title)%2Cr%3De.content%26%26Array.isArray(e.content.chapters)%3Fe.content.chapters%3A%5B%5D%2Co%3D%5B%5D%3Breturn%20r.forEach(e%3D%3E%7B(Array.isArray(e%26%26e.tracks)%3Fe.tracks%3A%5B%5D).forEach(r%3D%3E%7Bconst%20n%3Do.length%2B1%2Ci%3DString(n).padStart(3%2C%220%22)%2Cc%3Dr.display%26%26r.display.icon16x16%7C%7Ce.display%26%26e.display.icon16x16%7C%7C%22%22%2Cs%3D%60%24%7Ba%7D%20-%20%24%7Bi%7D%20-%20%24%7Bl(u(r.title))%7D%60%2Cf%3Dp(c)%3Bo.push(%7Bnumber%3An%2Cpad%3Ai%2Ctitle%3Avoid%200%3D%3D%3Dr.title%3Ft%3AString(r.title)%2CtrackUrl%3Ar.trackUrl%7C%7C%22%22%2CiconUrl%3Ac%2Cfilename%3As%2Bd(r.format)%2CiconFilename%3A%60%24%7Bs%7D%20(icon)%24%7Bf%7D%60%2Ctrack%3Ar%7D)%7D)%7D)%2Co%7Dfunction%20m(t%2Ce)%7Bconst%20a%3Dt.metadata%7C%7C%7B%7D%2Cr%3Da.media%7C%7C%7B%7D%2Cl%3Dt.content%7C%7C%7B%7D%2Cc%3D%5B%5D%2Cs%3D(t%2Ce)%3D%3Ec.push(%60%24%7Bt%7D%3A%3A%20%24%7Be%7D%60)%2Cd%3Dt%3D%3Ec.push(t%2C%22%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%22)%3Breturn%20d(%22Basic%20Details%22)%2Cs(%22Title%22%2Ci(t.title))%2Cs(%22Author%22%2Cf(a))%2Cs(%22Narrators%22%2Ci(a.narrators))%2Cs(%22Description%22%2Ci(a.description))%2Cc.push(%22%22)%2Cd(%22Extended%20Details%22)%2Cs(%22Version%22%2Ci(l.version))%2Cs(%22Category%22%2Ci(a.category))%2Cs(%22Languages%22%2Ci(a.languages))%2Cs(%22PlaybackType%22%2Ci(l.playbackType))%2Cs(%22CardID%22%2Ci(t.cardId))%2Cs(%22CreatedAt%22%2Ci(t.createdAt))%2Cs(%22UpdatedAt%22%2Ci(t.updatedAt))%2Cs(%22Slug%22%2Ci(t.slug))%2Cs(%22sortkey%22%2Ci(t.sortkey))%2Cs(%22Duration%22%2Ci(r.duration))%2Cs(%22ReadableDuration%22%2Co(r.duration))%2Cs(%22FileSize%22%2Ci(r.fileSize))%2Cs(%22ReadableFileSize%22%2Cn(r.fileSize))%2Cs(%22Note%22%2Ci(a.note))%2Cc.push(%22%22)%2Cd(%22Share%20Statistics%22)%2Cs(%22ShareCount%22%2Ci(t.shareCount))%2Cs(%22Availability%22%2Ci(t.availability%7C%7Cl.availability))%2Cs(%22ShareLinkUrl%22%2Ci(t.shareLinkUrl))%2Cc.push(%22%22)%2Cd(%22Track%20Details%22)%2Ce.forEach((%7Bpad%3At%2Ctrack%3Ae%7D)%3D%3E%7Bs(%22TrackNumber%22%2Ct)%2Cs(%22Title%22%2Ci(e.title))%2Cs(%22Format%22%2Ci(e.format))%2Cs(%22Type%22%2Ci(e.type))%2Cs(%22Duration%20(Seconds)%22%2Ci(e.duration))%2Cs(%22ReadableDuration%22%2Co(e.duration))%2Cs(%22FileSize%22%2Ci(e.fileSize))%2Cs(%22ReadableFileSize%22%2Cn(e.fileSize))%2Cs(%22Channels%22%2Ci(e.channels))%2Cc.push(%22%22)%7D)%2Cc.join(%22%5Cn%22)%7Dfunction%20b(t%2Ce%2Ca%2Cr)%7Bconst%20o%3Dt.createElement(e)%3Breturn%20Object.entries(a%7C%7C%7B%7D).forEach((%5Bt%2Ce%5D)%3D%3E%7Bnull!%3De%26%26(%22style%22%3D%3D%3Dt%3FObject.assign(o.style%2Ce)%3A%22text%22%3D%3D%3Dt%3Fo.textContent%3De%3At%20in%20o%26%26%22download%22!%3D%3Dt%3Fo%5Bt%5D%3De%3Ao.setAttribute(t%2Ce))%7D)%2C(r%7C%7C%5B%5D).forEach(e%3D%3E%7Be%26%26o.appendChild(%22string%22%3D%3Dtypeof%20e%3Ft.createTextNode(e)%3Ae)%7D)%2Co%7Dfunction%20x(t%2Ce%2Ca%2Cr%2Co)%7Breturn%20b(t%2C%22a%22%2CObject.assign(%7Bhref%3Ae%2Ctitle%3Ar%2Ctarget%3A%22_blank%22%2Crel%3A%22noopener%22%2Ctext%3Aa%7D%2Co))%7Dfunction%20k(t%2Ce)%7Bconst%20a%3D%7Bborder%3A%221px%20solid%20white%22%2Cpadding%3A%222px%206px%22%7D%2Cr%3Db(t%2C%22tr%22%2C%7Bstyle%3A%7Bcolor%3A%22%23ffffff%22%2CbackgroundColor%3A%22%23336699%22%7D%7D%2C%5Bb(t%2C%22th%22%2C%7Btext%3A%22%23%22%2Cstyle%3A%7BtextAlign%3A%22center%22%7D%7D)%2Cb(t%2C%22th%22%2C%7Btext%3A%22Track%22%2Cstyle%3A%7BtextAlign%3A%22left%22%7D%7D)%2Cb(t%2C%22th%22%2C%7Btext%3A%22Icon%22%2Cstyle%3A%7BtextAlign%3A%22center%22%7D%7D)%5D)%2Co%3De.map(e%3D%3Eb(t%2C%22tr%22%2C%7B%22data-track%22%3Ae.pad%7D%2C%5Bb(t%2C%22td%22%2C%7Btext%3AString(e.number)%2Cstyle%3AObject.assign(%7Bwidth%3A%2235px%22%7D%2Ca)%7D)%2Cb(t%2C%22td%22%2C%7Bstyle%3AObject.assign(%7BtextAlign%3A%22left%22%7D%2Ca)%7D%2C%5Be.trackUrl%3Fx(t%2Ce.trackUrl%2Ce.filename%2Ce.filename%2C%7BclassName%3A%22yad-track%22%7D)%3Ae.filename%5D)%2Cb(t%2C%22td%22%2C%7Bstyle%3AObject.assign(%7BtextAlign%3A%22center%22%2Cwidth%3A%2245px%22%7D%2Ca)%7D%2C%5Be.iconUrl%3Fb(t%2C%22a%22%2C%7Bhref%3Ae.iconUrl%2Ctitle%3Ae.iconFilename%2Ctarget%3A%22_blank%22%2Crel%3A%22noopener%22%2CclassName%3A%22yad-icon%22%7D%2C%5Bb(t%2C%22img%22%2C%7Bsrc%3Ae.iconUrl%2Calt%3Ae.iconFilename%2Cstyle%3A%7Bborder%3A%220%22%7D%7D)%5D)%3Anull%5D)%5D))%3Breturn%20b(t%2C%22table%22%2C%7BclassName%3A%22yad-tracks%22%2Cstyle%3A%7Bborder%3A%220%22%2CborderSpacing%3A%220%22%2CbackgroundColor%3A%22%23cfcfcf%22%7D%7D%2C%5Br%5D.concat(o))%7Dfunction%20v(t%2Ca)%7Bconst%20r%3Dt.getElementById(e)%3Bif(!r)return%3Bconst%20o%3Dr.querySelector(%22a%5Bdownload%5D%22)%3Bo%26%26a.URL%26%26a.URL.revokeObjectURL%26%26a.URL.revokeObjectURL(o.href)%2Cr.remove()%7Dconst%20S%3D%7Bmargin%3A%2220px%22%2CbackgroundColor%3A%22rgba(244%2C%2084%2C%2054%2C%20.6)%22%2Cpadding%3A%2220px%22%2Cfont%3A'normal%2010pt%20%22Source%20Sans%20Pro%22%2C%20%22Source%20Sans%22%2C%20Calibri%2C%20Arial%2C%20Tahoma%2C%20sans-serif'%7D%3Bfunction%20w(t%2Cr%2Co%2Cn)%7Bif(console.error(%60%5BYoto%20Archival%20Downloader%5D%20%24%7Bo%7D%60%2Cn%7C%7C%22%22)%2C!t.body)return%20null%3Bv(t%2Cr)%3Bconst%20i%3Db(t%2C%22div%22%2C%7Bid%3Ae%2CclassName%3A%22yad-error%22%2Cstyle%3AS%7D%2C%5Bb(t%2C%22h2%22%2C%7B%7D%2C%5Bx(t%2Ca%2C%22Archival%20Downloader%20for%20Yoto%22%2C%22Need%20help%3F%20Open%20the%20project%20page.%22)%5D)%2Cb(t%2C%22p%22%2C%7Btext%3Ao%2CclassName%3A%22yad-error-message%22%2Cstyle%3A%7BfontWeight%3A%22bold%22%7D%7D)%5D)%3Breturn%20t.body.insertBefore(i%2Ct.body.firstChild)%2Cnull%7Dfunction%20A(t%2Cr)%7Bt%3Dt%7C%7Cdocument%2Cr%3Dr%7C%7Cwindow%3Bconst%20o%3Dt.getElementById(%22__NEXT_DATA__%22)%3Bif(!o)return%20w(t%2Cr%2C%22Playlist%20data%20not%20found.%20Open%20the%20link%20read%20from%20your%20Yoto%20card%20(yoto.io%2F...)%20and%20run%20this%20again.%22)%3Blet%20n%2Cc%3Btry%7Bn%3DJSON.parse(o.textContent)%7Dcatch(e)%7Breturn%20w(t%2Cr%2C%22Could%20not%20read%20card%20data%3A%20the%20page%20data%20is%20not%20valid%20JSON.%22%2Ce)%7Dtry%7Bc%3Dh(n)%7Dcatch(e)%7Breturn%20w(t%2Cr%2Cy(n))%7Dconst%20s%3Dc.metadata%7C%7C%7B%7D%2Cd%3Dl(c.title)%2Cu%3Df(s)%2CA%3Ds.cover%26%26s.cover.imageL%7C%7Cc.content%26%26c.content.cover%26%26c.content.cover.imageL%7C%7C%22%22%2CC%3D%60%24%7Bd%7D%20-%20Artwork%24%7Bp(A)%7D%60%2CN%3Dg(c)%2CT%3Dm(c%2CN)%3Bv(t%2Cr)%3Bconst%20%24%3Dnew%20r.Blob(%5BT%5D%2C%7Btype%3A%22text%2Fplain%3Bcharset%3Dutf-8%22%7D)%2CO%3Db(t%2C%22a%22%2C%7Bhref%3Ar.URL.createObjectURL(%24)%2Cdownload%3A%60%24%7Bd%7D.txt%60%2CclassName%3A%22yad-metadata%22%2Ctext%3A%22%5B%20Get%20Metadata%20%5D%22%7D)%2CU%3Db(t%2C%22textarea%22%2C%7Brows%3A5%2Ccols%3A50%2CreadOnly%3A!0%2CclassName%3A%22yad-metadata-text%22%7D)%3BU.value%3DT%3Bconst%20E%3Db(t%2C%22button%22%2C%7Btype%3A%22button%22%2Ctext%3A%22Copy%22%2CclassName%3A%22yad-copy%22%2Cstyle%3A%7BmarginLeft%3A%2210px%22%7D%7D)%3BE.addEventListener(%22click%22%2C()%3D%3E%7Bconst%20t%3Dr.navigator%26%26r.navigator.clipboard%3Bt%26%26t.writeText%3Ft.writeText(T).then(()%3D%3E%7BE.textContent%3D%22Copied!%22%7D%2C()%3D%3E%7BU.select()%7D)%3AU.select()%7D)%3Bconst%20D%3Db(t%2C%22div%22%2C%7BclassName%3A%22yad-card-info%22%7D%2C%5BA%3Fb(t%2C%22img%22%2C%7Bsrc%3AA%2Calt%3AC%2Cstyle%3A%7Bfloat%3A%22left%22%2Cheight%3A%22150px%22%2Cborder%3A%220%22%2Cmargin%3A%220%2020px%2020px%200%22%7D%7D)%3Anull%2Cb(t%2C%22span%22%2C%7Btext%3A%60%24%7Bi(c.title)%7D%20(by%20%24%7Bu%7D)%60%2Cstyle%3A%7BfontWeight%3A%22bold%22%2CfontSize%3A%2213pt%22%7D%7D)%2Cb(t%2C%22br%22)%2CA%3Fx(t%2CA%2CC%2CC%2C%7BclassName%3A%22yad-cover%22%7D)%3Anull%2Cb(t%2C%22div%22%2C%7Bstyle%3A%7Bclear%3A%22both%22%7D%7D)%5D)%2CL%3Db(t%2C%22div%22%2C%7Bid%3Ae%2Cstyle%3AS%7D%2C%5Bb(t%2C%22h2%22%2C%7B%7D%2C%5Bx(t%2Ca%2C%22Archival%20Downloader%20for%20Yoto%22%2C%22Need%20help%3F%20Open%20the%20project%20page.%22)%5D)%2Cb(t%2C%22p%22%2C%7Btext%3A%60Need%20help%3F%20Click%20the%20title.%20%24%7BN.length%7D%20track(s)%20found.%60%7D)%2CD%2Cb(t%2C%22div%22%2C%7B%7D%2C%5Bb(t%2C%22h3%22%2C%7Btext%3A%22Archival%20Metadata%22%7D)%2CO%2CE%2Cb(t%2C%22p%22)%2CU%5D)%2Ck(t%2CN)%5D)%3Breturn%20function(t)%7Bt.querySelectorAll(%22.player-controls%22).forEach(t%3D%3Et.replaceChildren())%2Ct.querySelectorAll('%5Bclass*%3D%22Footer_appDownloadBar%22%5D').forEach(t%3D%3Et.remove())%7D(t)%2Ct.body.insertBefore(L%2Ct.body.firstChild)%2C%7Bcard%3Ac%2Ctracks%3AN%2CmetaText%3AT%2Ccontainer%3AL%7D%7Dconst%20C%3D%7BconvertSeconds%3Ao%2CformatBytes%3An%2CorUndef%3Ai%2CsanitizeFilename%3Al%2CaudioExtension%3Ad%2CstripAudioExtension%3Au%2CurlExtension%3Ap%2CcardAuthor%3Af%2CextractCard%3Ah%2CexplainMissingCard%3Ay%2CbuildTrackList%3Ag%2CbuildMetadataText%3Am%2Crun%3AA%2CUNDEF%3At%2CCONTAINER_ID%3Ae%7D%3B%22object%22%3D%3Dtypeof%20module%26%26module%26%26module.exports%26%26%22undefined%22%3D%3Dtypeof%20document%3Fmodule.exports%3DC%3AA(document%2Cwindow)%7D()%3B%7D)()
 ```
+<!-- BOOKMARKLET:END -->
 
 ## Usage
 
@@ -69,7 +88,7 @@ Scan a Yoto card with a third-party NFC reader app (like NFC Tools) to read the 
 
 
 ### Step 2:
-Open the yoto.io URL in your web browser on your computer (not your phone).
+Open the yoto.io URL in your web browser on your computer (not your phone). Keep the whole link, including everything after the `?`. It will redirect to `share.yoto.co`, which is expected.
 
 ### Step 3:
 Press `F12` on your keyboard to open the developer tools, enter the **Console** screen
@@ -77,7 +96,7 @@ Press `F12` on your keyboard to open the developer tools, enter the **Console** 
 ![image](https://github.com/user-attachments/assets/c09379bd-a317-42bf-be73-d06196927b09)
 
 ### Step 4:
-Copy the entire JS code file and paste it into the console. Press `Enter` to execute the code. You'll know it worked if you see an orage box appear on the top of the page. If you get an error in the console, it didn't work. 
+Copy the entire `yoto-archival-downloader_v3.js` file and paste it into the console (or click the bookmarklet instead of steps 3 and 4). Press `Enter` to execute the code. You'll know it worked if you see an orange box appear on the top of the page. If you get an error in the console, it didn't work. 
 
 ### Step 5:
 Download the files you'd like using "save as.." or select multiple files for batch downloading using Simple Mass Downloader. Set mask name to **Link text** in Simple Mass Downloader to download the files with the track names intact. 
@@ -88,14 +107,30 @@ Download the files you'd like using "save as.." or select multiple files for bat
 To complete the archvial process, make sure to download the Tracks, Icons, Metadata file and Card Art. Zip the whole bundle up and store it somewhere safe.
 **Note: When using Simple Mass Downloader, the metadata text file is not downloaded automatically. You need to just click that one link to download it.**
 
-## Cleanup Notes
-To minify and inset into a bookmarkable link
-1. edit in a text editor like Notepad++
-2. use `//.*?(?=\r?$)` as a **regular expression** to find/repalce all comments in the code
-3. use `\r\n` as an **extended search** to find/replace all line breaks
-4. use `\t`  as a **normal search** to find/replace all extra tab spacing, this should not impact strings. if you've converted tabs to spaces, use `  ` (two spaces).
-5. use Plugins>MIME Tools> URL Encode to create the bookmarklet one-liner
-   Note: the current version (as of sept 26 2024) is too long to be convereted into a bookmarklet
+## Development
+
+Requires Node.js 18 or newer.
+
+```bash
+npm install
+```
+
+```bash
+npm test
+```
+
+`npm test` runs every suite in `test/`:
+- `test/unit.test.js` - helper functions (durations, sizes, file names, track list, metadata text).
+- `test/dom.test.js` - pastes the script into a fake yoto.io page in jsdom and checks the panel, links, metadata file, copy button, re-runs and error handling.
+- `test/e2e.test.js` - the same page in a real Chromium through Playwright, including the metadata download and the minified bookmarklet. It is skipped when Playwright is not installed.
+
+The fake card data lives in `test/fixtures/cards.js` and contains no real card IDs.
+
+To rebuild the bookmarklet after changing the script (this replaces the old manual Notepad++ steps):
+
+```bash
+npm run build -- --readme
+```
 
 ## Bug Reporting
 If you get an error in your console, [please fill out this form](https://forms.gle/WhgsMjzJ2jmpN5Vx8) to privately send me the playlist link so I can investigate. Please submit the yoto.io URL with your bug report so I can test what didn't work. (not the URL from the browser bar, it needs to be the full URL with the cardID and random-character-looking contents after that.
